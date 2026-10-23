@@ -280,6 +280,17 @@ async function slide(o,to,lean){
   o.rotation.x=0;o.rotation.z=0;o.position.copy(to);squash(o,.18);dust(new T3.Vector3(to.x,to.y-.05,to.z),10,.6);shake=.03;
 }
 
+// arrastre de un solo gesto (la máquina): sube, viaja y se posa sin pararse
+async function arrastre(o,to,{dur=.62,lift=.38,posar=true}={}){
+  const from=o.position.clone();const dx=to.x-from.x,dz=to.z-from.z;
+  const bump=u=>Math.pow(Math.sin(Math.PI*u),.55);
+  await tw(dur,u=>{const e=eIO(u);
+    o.position.set(lerp(from.x,to.x,e),lerp(from.y,to.y,e)+lift*bump(u),lerp(from.z,to.z,e));
+    const v=Math.sin(Math.PI*u)*.18;o.rotation.x=dz*v;o.rotation.z=-dx*v;});
+  o.rotation.x=0;o.rotation.z=0;o.position.copy(to);
+  if(posar){squash(o,.12);dust(new T3.Vector3(to.x,to.y-.05,to.z),8,.5);}
+}
+
 // ---------- estado ----------
 const DIRS=[[[-1,0],[0,-1]],[[1,0],[0,1]]];
 const STARTS=[[[4,4],[4,3],[3,4]],[[0,0],[0,1],[1,0]]];
@@ -369,7 +380,7 @@ async function soltar(quick){
   const pr=tw(quick?.1:.22,u=>{t.obj.position.y=lerp(y0,base.y,eIn(u));});ui();
   if(!quick){await pr;squash(t.obj,.08);}
 }
-async function mover(r,c){
+async function mover(r,c,fluido){
   const id=ST.sel,t=tiles[id],p=ST.cur;
   if(!puedeMover(id,r-t.r,c-t.c)){await soltar();return;}   // no puede ir ahí: vuelve a bajar, sin más
   ST.busy=true;ST.sel=null;glowsOff();ui();
@@ -377,7 +388,8 @@ async function mover(r,c){
   const inside=r>=0&&r<5&&c>=0&&c<5;const lean={x:(r-fr),z:-(c-fc)};
   if(!inside){ // se sale del tablero
     const edge=cellPos(r,c);edge.y=t.obj.position.y;
-    await slide(t.obj,new T3.Vector3(edge.x,.05,edge.z),{x:0,z:0}).catch(()=>{});
+    if(fluido)await arrastre(t.obj,new T3.Vector3(edge.x,.05,edge.z),{posar:false});
+    else await slide(t.obj,new T3.Vector3(edge.x,.05,edge.z),{x:0,z:0}).catch(()=>{});
     const from=t.obj.position.clone();
     await tw(.75,u=>{t.obj.position.set(from.x+(c-fc)*.9*u,from.y-6*u*u,from.z+(r-fr)*.9*u);t.obj.rotation.x=(r-fr)*3*u;t.obj.rotation.z=-(c-fc)*3*u;const s=1-u*.9;t.obj.scale.set(s,s,s);});
     ST.fall[p].push(id);t.r=t.c=-1;
@@ -386,7 +398,7 @@ async function mover(r,c){
     await tw(.35,u=>{const s=.1+.9*elastic(u);t.obj.scale.set(s,s,s);});t.obj.scale.set(1,1,1);
     updatePileVis(p);
   }else{
-    const k=ST.cells[r][c].length;await slide(t.obj,tileWorld(r,c,k),lean);
+    const k=ST.cells[r][c].length;if(fluido)await arrastre(t.obj,tileWorld(r,c,k));else await slide(t.obj,tileWorld(r,c,k),lean);
     ST.cells[r][c].push(id);t.r=r;t.c=c;
     if(r===GOAL[p][0]&&c===GOAL[p][1]){ // llega a la esquina del rival: te la llevas
       ST.cells[r][c].pop();t.r=t.c=-1;sparkle(t.obj.position.clone().add(new T3.Vector3(0,.2,0)),40);
@@ -537,9 +549,9 @@ async function turnoMaquina(){
     if(yo!==IA.partida)return;
     if(despiste&&anyConflict()){despiste=false;await pasar();await espera(.6);}
     const id=topAt(r,c);if(id==null)break;
-    await seleccionar(id);await espera(.3);await mover(nr,nc);await espera(.25);}
+    ST.sel=id;await mover(nr,nc,true);await espera(.3);}
   // por si el plan no lo dejó todo resuelto
-  for(let k=0;k<80&&anyConflict()&&yo===IA.partida;k++){const ms=sMovs(ST.cells);if(!ms.length)break;const [r,c,nr,nc]=ms[0];await seleccionar(topAt(r,c));await espera(.25);await mover(nr,nc);}
+  for(let k=0;k<80&&anyConflict()&&yo===IA.partida;k++){const ms=sMovs(ST.cells);if(!ms.length)break;const [r,c,nr,nc]=ms[0];ST.sel=topAt(r,c);await mover(nr,nc,true);await espera(.3);}
   if(yo!==IA.partida)return;
   await espera(.3);await pasar();}
 const sorteoEl=document.getElementById('sorteo');
