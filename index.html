@@ -303,7 +303,7 @@ function ui(){
   if(ST.modo==='solo'){
     const pts=ST.coll[0].length-ST.fall[0].length;turnoEl.textContent='Solitario · '+pts+' puntos';turnoEl.classList.remove('p2');pasarBtn.classList.remove('p2');
     pasarBtn.textContent='Terminar';pasarBtn.disabled=ST.busy||ST.phase!=='move'||ST.piles[0].length>0;
-    msgEl.textContent=ST.phase==='draw'?'Toca tu montón':ST.phase==='place'?'Pon la ficha en una casilla iluminada':ST.phase==='move'?(ST.sel!=null?'Toca adónde la mueves':(ST.piles[0].length?'Mueve una ficha o toca el montón':'Mueve fichas o termina')):'';
+    msgEl.textContent=ST.phase==='draw'?'Toca tu montón':ST.phase==='place'?'Pon la ficha en una casilla iluminada':ST.phase==='move'?(ST.sel!=null?'Toca adónde la mueves':(ST.piles[0].length?'Resuelve los conflictos y toca el montón':'Mueve fichas o termina')):'';
     return;}
   if(ST.modo==='online'){const mio=p===RED.asiento;
     turnoEl.textContent=mio?'Tu turno':'Turno del rival';turnoEl.classList.toggle('p2',p===1);pasarBtn.classList.toggle('p2',RED.asiento===1);pasarBtn.textContent='Pasar turno';
@@ -433,7 +433,7 @@ function tap(x,y){
   if(ST.modo==='online'&&ST.cur!==RED.asiento)return;
   const p=ST.cur;
   if(ST.phase==='draw'){const h=hits(x,y,pileObjs[p]);if(h.length)act('robar');return;}
-  if(ST.modo==='solo'&&ST.phase==='move'&&ST.sel==null&&hits(x,y,pileObjs[0]).length){robar();return;}
+  if(ST.modo==='solo'&&ST.phase==='move'&&ST.sel==null&&hits(x,y,pileObjs[0]).length){if(!anyConflict())robar();return;}
   const glows=glowPool.filter(g=>g&&g.userData.on);
   const hg=hits(x,y,glows);
   if(ST.phase==='place'){
