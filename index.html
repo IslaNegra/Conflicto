@@ -33,6 +33,15 @@ body{margin:0;background:#3b2a1e;display:flex;align-items:center;justify-content
   padding-block:10px 14px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:6px;
 }
 @media (max-width:420px){#movil{border-radius:0;width:100vw;height:100%}}
+#aMenu{position:absolute;top:10px;left:max(12px,env(safe-area-inset-left,0px));z-index:3;font-family:var(--font-display);font-size:.95rem;font-weight:700;color:var(--ink);background:var(--panel);border:0;border-radius:12px;padding:.35em .8em;box-shadow:0 4px 0 #C9A985;cursor:pointer}
+#aMenu:active{transform:translateY(3px);box-shadow:0 1px 0 #C9A985}
+#salir[hidden]{display:none}
+#salir{position:absolute;inset:0;z-index:6;display:flex;align-items:center;justify-content:center;background:rgba(60,35,15,.4);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#salir .card{background:var(--panel);border-radius:22px;padding:1.2em 1.4em;width:100%;max-width:300px;box-shadow:0 10px 0 rgba(0,0,0,.15);text-align:center}
+#salir p{margin:0 0 1em;font-size:1.3rem;font-weight:700}#salir p span{font-size:1rem;font-weight:500;color:var(--ink-soft)}
+#salir .fila{display:flex;gap:12px}
+#salir button{flex:1;font-family:var(--font-display);font-size:1.15rem;font-weight:700;color:#fff;background:var(--focus);border:0;border-radius:14px;padding:.5em;box-shadow:0 5px 0 #8E2F1F;cursor:pointer}
+#salir button.sec{background:#9A7660;box-shadow:0 5px 0 #6B4F3E}
 #turno{font-size:1.25rem;font-weight:700;padding:.25em 1em;border-radius:999px;color:#fff;background:var(--p1);box-shadow:0 4px 0 var(--p1-side);transition:background .4s,box-shadow .4s}
 #turno.p2{background:var(--p2);box-shadow:0 4px 0 var(--p2-side)}
 #stage{width:100%;max-width:620px;flex:1;min-height:0;position:relative;touch-action:none}
@@ -81,7 +90,9 @@ button:focus-visible{outline:3px solid var(--focus);outline-offset:4px}
 <body>
 
 <div id="movil">
+<button type="button" id="aMenu" aria-label="Volver al menú">Menú</button>
 <div id="turno" aria-live="polite">Jugador 1</div>
+<div id="salir" hidden><div class="card"><p>¿Volver al menú?<br><span>Se pierde esta partida.</span></p><div class="fila"><button type="button" id="salirSi">Sí</button><button type="button" id="salirNo" class="sec">No</button></div></div></div>
 <div id="stage" aria-label="Tablero de juego en 3D"></div>
 <div id="msg" aria-live="polite">Toca tu montón</div>
 <button id="pasar" type="button" disabled>Pasar turno</button>
@@ -488,6 +499,12 @@ async function unirSala(){
   cerrarRed();RED.asiento=1;RED.cod=cod;salaEst.textContent='Buscando la sala '+cod+'…';
   try{await cargarLib();}catch(e){salaEst.textContent='No hay conexión a internet';return;}
   RED.tubo=tubo(cod,alRecibir,()=>{let k=0;const llamar=()=>{if(RED.empezada)return;if(++k>8){clearInterval(RED.llamada);salaEst.textContent='No encuentro esa sala. Revisa el código.';return;}RED.tubo.enviar({t:'hola'});};llamar();RED.llamada=setInterval(llamar,3000);});}
+const salirEl=document.getElementById('salir'),aMenu=document.getElementById('aMenu');
+function enMenu(){return !document.getElementById('menu').hidden||!salaEl.hidden||!document.getElementById('fin').hidden;}
+aMenu.addEventListener('click',()=>{if(enMenu())return;salirEl.hidden=false;});
+document.getElementById('salirNo').addEventListener('click',()=>{salirEl.hidden=true;});
+document.getElementById('salirSi').addEventListener('click',()=>{salirEl.hidden=true;cerrarRed();anims=[];ST.busy=false;ST.phase='fin';glowsOff();document.getElementById('menu').hidden=false;});
+setInterval(()=>{aMenu.hidden=enMenu();},300);
 document.getElementById('mOnline').addEventListener('click',()=>{document.getElementById('menu').hidden=true;salaEl.hidden=false;salaEst.textContent='';});
 document.getElementById('crearSala').addEventListener('click',crearSala);
 document.getElementById('unirSala').addEventListener('click',unirSala);
