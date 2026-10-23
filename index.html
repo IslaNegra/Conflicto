@@ -74,6 +74,15 @@ button:focus-visible{outline:3px solid var(--focus);outline-offset:4px}
 #menu button{font-family:var(--font-display);font-size:1.2rem;font-weight:700;color:#fff;background:var(--p1);border:0;border-radius:16px;padding:.6em 1em;box-shadow:0 6px 0 var(--p1-side);cursor:pointer}
 #menu #mSolo{background:var(--p2);box-shadow:0 6px 0 var(--p2-side)}
 #menu #mOnline{background:#3E8E5A;box-shadow:0 6px 0 #275C3A}
+#menu #mIA{background:#7A4FB0;box-shadow:0 6px 0 #4F2F7A}
+#nivel[hidden]{display:none}
+#nivel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(60,35,15,.35);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+#nivel .card{background:var(--panel);border-radius:22px;padding:1.4em 1.4em 1.1em;width:100%;max-width:320px;box-shadow:0 10px 0 rgba(0,0,0,.15);display:flex;flex-direction:column;gap:14px}
+#nivel h2{margin:0;text-align:center;font-size:1.6rem}
+#nivel button{font-family:var(--font-display);font-size:1.15rem;font-weight:700;color:#fff;background:#7A4FB0;border:0;border-radius:16px;padding:.55em 1em;box-shadow:0 6px 0 #4F2F7A;cursor:pointer}
+#nivel button.sec{background:#9A7660;box-shadow:0 6px 0 #6B4F3E}
+#sorteo[hidden]{display:none}
+#sorteo{position:absolute;left:0;right:0;top:18%;text-align:center;font-size:1.7rem;font-weight:700;color:var(--ink);text-shadow:0 2px 0 #fff8ee;pointer-events:none}
 #sala[hidden]{display:none}
 #sala{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(60,35,15,.35);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 #sala .card{background:var(--panel);border-radius:22px;padding:1.4em 1.4em 1.1em;width:100%;max-width:320px;box-shadow:0 10px 0 rgba(0,0,0,.15);display:flex;flex-direction:column;gap:14px}
@@ -99,8 +108,13 @@ button:focus-visible{outline:3px solid var(--focus);outline-offset:4px}
 <div id="menu"><div class="card"><h2>Conflicto</h2>
 <button type="button" id="mDos">Dos jugadores</button>
 <button type="button" id="mSolo">Solitario</button>
+<button type="button" id="mIA">Contra la máquina</button>
 <button type="button" id="mOnline">Online</button>
-<p class="pronto">Contra la máquina: muy pronto</p></div></div>
+</div></div>
+<div id="nivel" hidden><div class="card"><h2>Contra la máquina</h2>
+<button type="button" data-n="0">Fácil</button><button type="button" data-n="1">Normal</button><button type="button" data-n="2">Difícil</button>
+<button type="button" id="nivelVolver" class="sec">Volver</button></div></div>
+<div id="sorteo" hidden aria-live="polite"></div>
 <div id="sala" hidden><div class="card"><h2>Online</h2>
 <button type="button" id="crearSala">Crear sala</button>
 <div class="unir"><input id="codSala" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="CÓDIGO" aria-label="Código de la sala"><button type="button" id="unirSala">Unirme</button></div>
@@ -305,7 +319,12 @@ function ui(){
     pasarBtn.textContent='Terminar';pasarBtn.disabled=ST.busy||ST.phase!=='move'||ST.piles[0].length>0;
     msgEl.textContent=ST.phase==='draw'?'Toca tu montón':ST.phase==='place'?'Pon la ficha en una casilla iluminada':ST.phase==='move'?(ST.sel!=null?'Toca adónde la mueves':(ST.piles[0].length?'Resuelve los conflictos y toca el montón':'Resuelve los conflictos y termina')):'';
     return;}
-  if(ST.modo==='online'){const mio=p===RED.asiento;
+  if(ST.modo==='ia'){const mio=p===0;
+    turnoEl.textContent=ST.phase==='sorteo'?'¿Quién empieza?':mio?'Tu turno':'Turno de la máquina';turnoEl.classList.toggle('p2',p===1);pasarBtn.classList.remove('p2');pasarBtn.textContent='Pasar turno';
+    pasarBtn.disabled=!mio||ST.busy||ST.phase!=='move';
+    if(!mio){msgEl.textContent=ST.phase==='sorteo'?'':'La máquina está pensando…';return;}
+    if(ST.phase==='sorteo'){msgEl.textContent='';pasarBtn.disabled=true;return;}}
+  else if(ST.modo==='online'){const mio=p===RED.asiento;
     turnoEl.textContent=mio?'Tu turno':'Turno del rival';turnoEl.classList.toggle('p2',p===1);pasarBtn.classList.toggle('p2',RED.asiento===1);pasarBtn.textContent='Pasar turno';
     pasarBtn.disabled=!mio||ST.busy||ST.phase!=='move';
     if(!mio){msgEl.textContent=RED.caido?'El rival se ha desconectado':'Espera al rival';return;}}
@@ -386,9 +405,10 @@ async function pasar(){
   if(!ST.piles[0].length&&!ST.piles[1].length){fin();return;}
   ST.busy=true;ST.phase='turn';ui();
   ST.cur=1-ST.cur;
-  if(ST.modo==='online'){await tw(.3,()=>{});}
+  if(ST.modo==='online'||ST.modo==='ia'){await tw(.3,()=>{});}
   else{camYawTarget=ST.cur?Math.PI:0;await tw(1.1,u=>{camYaw=lerp(ST.cur?0:Math.PI,camYawTarget,eIO(u));});}
   ST.phase='draw';ST.busy=false;ui();
+  if(ST.modo==='ia'&&ST.cur===1)turnoMaquina();
 }
 function fin(){
   ST.phase='fin';ui();
@@ -400,7 +420,7 @@ function fin(){
     const ownF=ST.fall[p].filter(i=>tiles[i].owner===p).length,rivF=ST.fall[p].length-ownF;
     const v=[ownC*5,rivC,-ownF*5,-rivF,-ST.pen[p]];tot[p]=v.reduce((a,b)=>a+b,0);return {ownC,rivC,ownF,rivF,pen:ST.pen[p],v};};
   const a=part(0),b=part(1);
-  const tab=document.getElementById('finTab');const NM=ST.modo==='online'?(RED.asiento===0?['Tú','Rival']:['Rival','Tú']):NOMBRES;
+  const tab=document.getElementById('finTab');const NM=ST.modo==='online'?(RED.asiento===0?['Tú','Rival']:['Rival','Tú']):ST.modo==='ia'?['Tú','Máquina']:NOMBRES;
   tab.innerHTML=`<tr><th></th><th class="p1c">${NM[0]}</th><th class="p2c">${NM[1]}</th></tr>
   <tr><td>Propias ganadas ×5</td><td>${a.ownC} → ${a.v[0]}</td><td>${b.ownC} → ${b.v[0]}</td></tr>
   <tr><td>Del rival ganadas ×1</td><td>${a.rivC} → ${a.v[1]}</td><td>${b.rivC} → ${b.v[1]}</td></tr>
@@ -408,13 +428,13 @@ function fin(){
   <tr><td>Del rival caídas ×−1</td><td>${a.rivF} → ${a.v[3]}</td><td>${b.rivF} → ${b.v[3]}</td></tr>
   <tr><td>Pasar con conflicto ×−1</td><td>${a.pen} → ${a.v[4]}</td><td>${b.pen} → ${b.v[4]}</td></tr>
   <tr class="total"><td>Total</td><td>${tot[0]}</td><td>${tot[1]}</td></tr>`;
-  document.getElementById('finTit').textContent=tot[0]===tot[1]?'Empate':(ST.modo==='online'?((tot[0]>tot[1]?0:1)===RED.asiento?'¡Has ganado!':'Gana el rival'):'Gana '+NOMBRES[tot[0]>tot[1]?0:1]);
+  document.getElementById('finTit').textContent=tot[0]===tot[1]?'Empate':(ST.modo==='ia'?(tot[0]>tot[1]?'¡Has ganado!':'Gana la máquina'):ST.modo==='online'?((tot[0]>tot[1]?0:1)===RED.asiento?'¡Has ganado!':'Gana el rival'):'Gana '+NOMBRES[tot[0]>tot[1]?0:1]);
   document.getElementById('fin').hidden=false;
 }
 document.getElementById('otraPartida').addEventListener('click',()=>{document.getElementById('fin').hidden=true;cerrarRed();document.getElementById('menu').hidden=false;});
 document.getElementById('mDos').addEventListener('click',()=>{document.getElementById('menu').hidden=true;nuevaPartida('dos');});
 document.getElementById('mSolo').addEventListener('click',()=>{document.getElementById('menu').hidden=true;nuevaPartida('solo');});
-pasarBtn.addEventListener('click',()=>{if(ST.modo==='online'&&ST.cur!==RED.asiento)return;act('pasar');});
+pasarBtn.addEventListener('click',()=>{if(!miTurno())return;act('pasar');});
 
 // ---------- toques ----------
 const ray=new T3.Raycaster(),ptr=new T3.Vector2();let down=null;
@@ -430,7 +450,7 @@ stage.addEventListener('pointercancel',()=>{finGiro();down=null;});
 function hits(x,y,objs){const r=renderer.domElement.getBoundingClientRect();ptr.set((x-r.left)/r.width*2-1,-(y-r.top)/r.height*2+1);ray.setFromCamera(ptr,camera);return ray.intersectObjects(objs,true);}
 function tap(x,y){
   if(ST.busy)return;
-  if(ST.modo==='online'&&ST.cur!==RED.asiento)return;
+  if(!miTurno())return;
   const p=ST.cur;
   if(ST.phase==='draw'){const h=hits(x,y,pileObjs[p]);if(h.length)act('robar');return;}
   if(ST.modo==='solo'&&ST.phase==='move'&&ST.sel==null&&hits(x,y,pileObjs[0]).length){if(!anyConflict())robar();else senalarConflictos();return;}
@@ -465,6 +485,84 @@ function senalarConflictos(){
   const mine=marcas.slice();
   tw(2.4,u=>{const v=(.55+.45*Math.sin(u*Math.PI*6-Math.PI/2))*(u<.85?1:(1-u)/.15);mine.forEach(m=>m.material.opacity=v);}).then(()=>{mine.forEach(m=>scene.remove(m));marcas=marcas.filter(m=>!mine.includes(m));});
 }
+
+
+// ---------- contra la máquina ----------
+function miTurno(){if(ST.modo==='online')return ST.cur===RED.asiento;if(ST.modo==='ia')return ST.cur===0;return true;}
+const NIVEL=[{olvido:.3,despiste:.25,ancho:5,prof:8,ruido:1.2},{olvido:.12,despiste:.08,ancho:18,prof:12,ruido:.35},{olvido:0,despiste:0,ancho:60,prof:16,ruido:0}];
+let IA=null;
+const espera=s=>tw(s,()=>{});
+// lo que la máquina cree que es de cada uno (en fácil y normal se le olvidan algunas)
+function creenciaDueno(){const n=NIVEL[IA.nivel];IA.dueno=tiles.map(t=>Math.random()<n.olvido?1-t.owner:t.owner);}
+// --- simulación sin dibujar ---
+function sTop(cl,r,c){const s=cl[r][c];return s.length?s[s.length-1]:null;}
+function sConf(cl,r,c){const id=sTop(cl,r,c);const o={fila:false,col:false};if(id==null)return o;const t=tiles[id];
+  for(let i=0;i<5;i++){if(i!==c){const u=sTop(cl,r,i);if(u!=null&&(tiles[u].ci===t.ci||tiles[u].si===t.si))o.fila=true;}
+    if(i!==r){const u=sTop(cl,i,c);if(u!=null&&(tiles[u].ci===t.ci||tiles[u].si===t.si))o.col=true;}}return o;}
+function sHay(cl){for(let r=0;r<5;r++)for(let c=0;c<5;c++){const k=sConf(cl,r,c);if(k.fila||k.col)return true;}return false;}
+function sMovs(cl){const out=[];for(let r=0;r<5;r++)for(let c=0;c<5;c++){const k=sConf(cl,r,c);if(!k.fila&&!k.col)continue;
+    for(const [dr,dc] of [[1,0],[0,1]]){const ok=(k.fila&&k.col)||(k.fila?dr!==0:dc!==0);if(ok)out.push([r,c,r+dr,c+dc]);}}return out;}
+function sAplica(st,[r,c,nr,nc]){const cl=st.cl.map(f=>f.map(s=>s.slice()));const id=cl[r][c].pop();let g=st.g;const mia=IA.dueno[id]===1;
+  if(nr>4||nc>4){g+=mia?-5:-1;}
+  else if(nr===4&&nc===4){g+=mia?5:1;}
+  else cl[nr][nc].push(id);
+  return {cl,g,movs:st.movs.concat([[r,c,nr,nc]])};}
+function sValor(st){let v=st.g*10;
+  for(let r=0;r<5;r++)for(let c=0;c<5;c++)st.cl[r][c].forEach((id,k)=>{const tapada=k<st.cl[r][c].length-1?.6:1;
+    if(IA.dueno[id]===1)v+=(r+c)*.9*tapada;            // mis fichas, cuanto más cerca de mi esquina mejor
+    else v-=(8-r-c)*(8-r-c)*.08*tapada;});            // las del rival, cuanto más lejos de la suya mejor
+  if(sHay(st.cl))v-=6;return v+(Math.random()-.5)*NIVEL[IA.nivel].ruido*10;}
+function planTurno(cl0,manoId){
+  const n=NIVEL[IA.nivel];let mejor=null;
+  for(const [r,c] of STARTS[1]){
+    const cl=cl0.map(f=>f.map(s=>s.slice()));cl[r][c].push(manoId);
+    let capa=[{cl,g:0,movs:[]}],fin=[];
+    for(let d=0;d<n.prof&&capa.length;d++){
+      const sig=[];for(const st of capa){if(!sHay(st.cl)){fin.push(st);continue;}for(const m of sMovs(st.cl))sig.push(sAplica(st,m));}
+      sig.forEach(x=>x.v=sValor(x));sig.sort((a,b)=>b.v-a.v);capa=sig.slice(0,n.ancho);}
+    capa.forEach(st=>{if(!sHay(st.cl))fin.push(st);});
+    if(!fin.length&&capa.length){let st=capa[0];for(let k=0;k<80&&sHay(st.cl);k++){const ms=sMovs(st.cl);if(!ms.length)break;st=ms.map(m=>sAplica(st,m)).map(x=>(x.v=sValor(x),x)).sort((a,b)=>b.v-a.v)[0];}fin.push(st);}
+    for(const st of fin){const v=sValor(st);if(!mejor||v>mejor.v)mejor={v,colocar:[r,c],movs:st.movs};}
+  }
+  return mejor;}
+async function turnoMaquina(){
+  if(ST.modo!=='ia'||ST.cur!==1||ST.phase==='fin')return;
+  const n=NIVEL[IA.nivel];const yo=IA.partida;
+  await espera(.6);if(yo!==IA.partida)return;
+  await robar();await espera(.35);if(yo!==IA.partida)return;
+  const plan=planTurno(ST.cells,ST.hand);
+  await colocar(...plan.colocar);await espera(.4);
+  let despiste=Math.random()<n.despiste;
+  for(const [r,c,nr,nc] of plan.movs){
+    if(yo!==IA.partida)return;
+    if(despiste&&anyConflict()){despiste=false;await pasar();await espera(.6);}
+    const id=topAt(r,c);if(id==null)break;
+    await seleccionar(id);await espera(.3);await mover(nr,nc);await espera(.25);}
+  // por si el plan no lo dejó todo resuelto
+  for(let k=0;k<80&&anyConflict()&&yo===IA.partida;k++){const ms=sMovs(ST.cells);if(!ms.length)break;const [r,c,nr,nc]=ms[0];await seleccionar(topAt(r,c));await espera(.25);await mover(nr,nc);}
+  if(yo!==IA.partida)return;
+  await espera(.3);await pasar();}
+const sorteoEl=document.getElementById('sorteo');
+async function empezarIA(nivel){
+  IA={nivel,partida:(IA?IA.partida:0)+1};
+  nuevaPartida('ia');creenciaDueno();
+  // sorteo: una ficha gira en el aire; cara = empiezas tú, dorso = empieza la máquina
+  ST.phase='sorteo';ST.busy=true;ui();
+  const empiezaTu=Math.random()<.5;
+  const m=makeTileObj(0,0,-1);m.position.set(0,.3,0);
+  const vueltas=6+(empiezaTu?0:1);
+  await tw(1.5,u=>{m.position.y=.3+Math.sin(Math.PI*u)*2.6;m.rotation.x=eOut(u)*vueltas*Math.PI;});
+  m.rotation.x=empiezaTu?0:Math.PI;squash(m,.25);dust(new T3.Vector3(0,.25,0),12,.8);
+  sorteoEl.textContent=empiezaTu?'Empiezas tú':'Empieza la máquina';sorteoEl.hidden=false;
+  await espera(1.3);
+  const p0=m.position.clone();
+  await tw(.5,u=>{m.position.y=p0.y+u*3;const s=1-u;m.scale.set(s,s,s);});scene.remove(m);sorteoEl.hidden=true;
+  ST.cur=empiezaTu?0:1;ST.phase='draw';ST.busy=false;ui();
+  if(!empiezaTu)turnoMaquina();}
+const nivelEl=document.getElementById('nivel');
+document.getElementById('mIA').addEventListener('click',()=>{document.getElementById('menu').hidden=true;nivelEl.hidden=false;});
+document.getElementById('nivelVolver').addEventListener('click',()=>{nivelEl.hidden=true;document.getElementById('menu').hidden=false;});
+nivelEl.querySelectorAll('button[data-n]').forEach(b=>b.addEventListener('click',()=>{nivelEl.hidden=true;empezarIA(+b.dataset.n);}));
 
 // ---------- acciones (iguales en local y online) ----------
 const ACC={robar:()=>robar(),colocar:(r,c)=>colocar(r,c),seleccionar:id=>seleccionar(id),soltar:()=>soltar(),mover:(r,c)=>mover(r,c),pasar:()=>pasar()};
@@ -514,10 +612,10 @@ async function unirSala(){
   try{await cargarLib();}catch(e){salaEst.textContent='No hay conexión a internet';return;}
   RED.tubo=tubo(cod,alRecibir,()=>{let k=0;const llamar=()=>{if(RED.empezada)return;if(++k>8){clearInterval(RED.llamada);salaEst.textContent='No encuentro esa sala. Revisa el código.';return;}RED.tubo.enviar({t:'hola'});};llamar();RED.llamada=setInterval(llamar,3000);});}
 const salirEl=document.getElementById('salir'),aMenu=document.getElementById('aMenu');
-function enMenu(){return !document.getElementById('menu').hidden||!salaEl.hidden||!document.getElementById('fin').hidden;}
+function enMenu(){return !document.getElementById('menu').hidden||!salaEl.hidden||!document.getElementById('fin').hidden||!document.getElementById('nivel').hidden;}
 aMenu.addEventListener('click',()=>{if(enMenu())return;salirEl.hidden=false;});
 document.getElementById('salirNo').addEventListener('click',()=>{salirEl.hidden=true;});
-document.getElementById('salirSi').addEventListener('click',()=>{salirEl.hidden=true;cerrarRed();anims=[];ST.busy=false;ST.phase='fin';glowsOff();document.getElementById('menu').hidden=false;});
+document.getElementById('salirSi').addEventListener('click',()=>{salirEl.hidden=true;if(IA)IA.partida++;sorteoEl.hidden=true;cerrarRed();anims=[];ST.busy=false;ST.phase='fin';glowsOff();document.getElementById('menu').hidden=false;});
 setInterval(()=>{aMenu.hidden=enMenu();},300);
 document.getElementById('mOnline').addEventListener('click',()=>{document.getElementById('menu').hidden=true;salaEl.hidden=false;salaEst.textContent='';});
 document.getElementById('crearSala').addEventListener('click',crearSala);
