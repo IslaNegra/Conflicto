@@ -407,8 +407,15 @@ pasarBtn.addEventListener('click',()=>{if(ST.modo==='online'&&ST.cur!==RED.asien
 
 // ---------- toques ----------
 const ray=new T3.Raycaster(),ptr=new T3.Vector2();let down=null;
-stage.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};});
-stage.addEventListener('pointerup',e=>{if(!down)return;const d=Math.hypot(e.clientX-down.x,e.clientY-down.y);down=null;if(d>12)return;tap(e.clientX,e.clientY);});
+// girar el tablero arrastrando con el dedo; un toque corto sigue siendo un toque
+let giro=null;
+stage.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};giro={x:e.clientX,y:e.clientY,yaw:yawOff,pitch:pitch,mov:false};try{stage.setPointerCapture(e.pointerId);}catch(_){}});
+stage.addEventListener('pointermove',e=>{if(!giro)return;const dx=e.clientX-giro.x,dy=e.clientY-giro.y;
+  if(!giro.mov&&Math.hypot(dx,dy)>12)giro.mov=true;
+  if(giro.mov){yawOff=giro.yaw-dx*.009;pitch=Math.min(1.45,Math.max(.4,giro.pitch+dy*.006));}});
+const finGiro=()=>{giro=null;};
+stage.addEventListener('pointerup',e=>{const g=giro;finGiro();if(!down)return;down=null;if(g&&g.mov)return;tap(e.clientX,e.clientY);});
+stage.addEventListener('pointercancel',()=>{finGiro();down=null;});
 function hits(x,y,objs){const r=renderer.domElement.getBoundingClientRect();ptr.set((x-r.left)/r.width*2-1,-(y-r.top)/r.height*2+1);ray.setFromCamera(ptr,camera);return ray.intersectObjects(objs,true);}
 function tap(x,y){
   if(ST.busy)return;
@@ -487,15 +494,21 @@ document.getElementById('unirSala').addEventListener('click',unirSala);
 document.getElementById('salaVolver').addEventListener('click',()=>{cerrarRed();salaEl.hidden=true;document.getElementById('menu').hidden=false;});
 
 // ---------- cámara ----------
-let camYaw=0,camYawTarget=0;const PITCH=.95;let dist=11;
+let camYaw=0,camYawTarget=0,yawOff=0,pitch=.95;let dist=11;
+const PUNTOS_VISTA=[[2.85,2.85],[-2.85,2.85],[2.85,-2.85],[-2.85,-2.85],[2.5,3.75],[-2.6,3.75],[-2.5,-3.75],[2.6,-3.75]];
 function resize(){const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;
   dist=10.2*Math.max(1,1.0/camera.aspect);camera.updateProjectionMatrix();}
 addEventListener('resize',resize);
 function placeCam(){const tgt=new T3.Vector3(0,-.4,0);
-  camera.position.set(tgt.x+Math.sin(camYaw)*Math.cos(PITCH)*dist,tgt.y+Math.sin(PITCH)*dist,tgt.z+Math.cos(camYaw)*Math.cos(PITCH)*dist);
+  const yaw=camYaw+yawOff;
+  // al girar, la cámara se aleja lo justo para que no se salgan del móvil el tablero ni los montones
+  const cY=Math.cos(yaw),sY=Math.sin(yaw);let mx=0;
+  for(const [x,z] of PUNTOS_VISTA){mx=Math.max(mx,Math.abs(x*cY-z*sY));}
+  const d=dist*Math.max(1,mx/3.05);
+  camera.position.set(tgt.x+sY*Math.cos(pitch)*d,tgt.y+Math.sin(pitch)*d,tgt.z+cY*Math.cos(pitch)*d);
   if(shake>0&&!reduce){camera.position.x+=(Math.random()-.5)*shake;camera.position.y+=(Math.random()-.5)*shake;}
   camera.lookAt(tgt);
-  const cy=Math.cos(camYaw),sy=Math.sin(camYaw);sun.position.set(-4*cy+5*sy,9,4*sy+5*cy);}
+  const cy=Math.cos(camYaw+yawOff),sy=Math.sin(camYaw+yawOff);sun.position.set(-4*cy+5*sy,9,4*sy+5*cy);}
 
 let last=performance.now();
 function frame(now){
