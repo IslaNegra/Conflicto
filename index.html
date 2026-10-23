@@ -303,7 +303,7 @@ function ui(){
   if(ST.modo==='solo'){
     const pts=ST.coll[0].length-ST.fall[0].length;turnoEl.textContent='Solitario · '+pts+' puntos';turnoEl.classList.remove('p2');pasarBtn.classList.remove('p2');
     pasarBtn.textContent='Terminar';pasarBtn.disabled=ST.busy||ST.phase!=='move'||ST.piles[0].length>0;
-    msgEl.textContent=ST.phase==='draw'?'Toca tu montón':ST.phase==='place'?'Pon la ficha en una casilla iluminada':ST.phase==='move'?(ST.sel!=null?'Toca adónde la mueves':(ST.piles[0].length?'Resuelve los conflictos y toca el montón':'Mueve fichas o termina')):'';
+    msgEl.textContent=ST.phase==='draw'?'Toca tu montón':ST.phase==='place'?'Pon la ficha en una casilla iluminada':ST.phase==='move'?(ST.sel!=null?'Toca adónde la mueves':(ST.piles[0].length?'Resuelve los conflictos y toca el montón':'Resuelve los conflictos y termina')):'';
     return;}
   if(ST.modo==='online'){const mio=p===RED.asiento;
     turnoEl.textContent=mio?'Tu turno':'Turno del rival';turnoEl.classList.toggle('p2',p===1);pasarBtn.classList.toggle('p2',RED.asiento===1);pasarBtn.textContent='Pasar turno';
@@ -381,7 +381,7 @@ async function mover(r,c){
 async function pasar(){
   if(ST.busy||ST.phase!=='move')return;
   if(ST.sel!=null)await soltar(true);
-  if(ST.modo==='solo'){if(!ST.piles[0].length)fin();return;}
+  if(ST.modo==='solo'){if(ST.piles[0].length)return;if(anyConflict()){senalarConflictos();return;}fin();return;}
   if(anyConflict()){ST.pen[ST.cur]++;floatText('−1',new T3.Vector3(0,.8,0).add(PILE[ST.cur].clone().multiplyScalar(.55)),'#FF6B4A');return;}
   if(!ST.piles[0].length&&!ST.piles[1].length){fin();return;}
   ST.busy=true;ST.phase='turn';ui();
@@ -433,7 +433,7 @@ function tap(x,y){
   if(ST.modo==='online'&&ST.cur!==RED.asiento)return;
   const p=ST.cur;
   if(ST.phase==='draw'){const h=hits(x,y,pileObjs[p]);if(h.length)act('robar');return;}
-  if(ST.modo==='solo'&&ST.phase==='move'&&ST.sel==null&&hits(x,y,pileObjs[0]).length){if(!anyConflict())robar();return;}
+  if(ST.modo==='solo'&&ST.phase==='move'&&ST.sel==null&&hits(x,y,pileObjs[0]).length){if(!anyConflict())robar();else senalarConflictos();return;}
   const glows=glowPool.filter(g=>g&&g.userData.on);
   const hg=hits(x,y,glows);
   if(ST.phase==='place'){
@@ -451,6 +451,20 @@ function tap(x,y){
   }
 }
 
+
+// ---------- solitario: señalar las fichas en conflicto ----------
+let marcas=[];
+function senalarConflictos(){
+  marcas.forEach(m=>scene.remove(m));marcas=[];
+  const ids=[];for(let r=0;r<5;r++)for(let c=0;c<5;c++){const id=topAt(r,c);if(id!=null&&inConflict(id))ids.push(id);}
+  ids.forEach(id=>{const t=tiles[id];const p=tileWorld(t.r,t.c,ST.cells[t.r][t.c].length-1);
+    const m=new T3.Mesh(new T3.PlaneGeometry(1.15,1.15),new T3.MeshBasicMaterial({map:glowTex,color:0xFF2A14,transparent:true,depthWrite:false,toneMapped:false,opacity:0}));
+    m.rotation.x=-Math.PI/2;m.position.set(p.x,p.y+H/2+.01,p.z);m.renderOrder=4;scene.add(m);marcas.push(m);
+    for(let i=0;i<10;i++){const a=i/10*Math.PI*2;spawn({p:new T3.Vector3(p.x+Math.cos(a)*.42,p.y+.08,p.z+Math.sin(a)*.42),v:new T3.Vector3(Math.cos(a)*.6,1.2+Math.random(),Math.sin(a)*.6),g:-3,drag:2,add:true,color:[0xFF6B4A,0xFFB347][i%2],size:.1,grow:-.5,max:.6+Math.random()*.3});}
+    const o=t.obj,x0=p.x;tw(.5,u=>{o.position.x=x0+Math.sin(u*Math.PI*6)*.04*(1-u);}).then(()=>{o.position.x=x0;});});
+  const mine=marcas.slice();
+  tw(2.4,u=>{const v=(.55+.45*Math.sin(u*Math.PI*6-Math.PI/2))*(u<.85?1:(1-u)/.15);mine.forEach(m=>m.material.opacity=v);}).then(()=>{mine.forEach(m=>scene.remove(m));marcas=marcas.filter(m=>!mine.includes(m));});
+}
 
 // ---------- acciones (iguales en local y online) ----------
 const ACC={robar:()=>robar(),colocar:(r,c)=>colocar(r,c),seleccionar:id=>seleccionar(id),soltar:()=>soltar(),mover:(r,c)=>mover(r,c),pasar:()=>pasar()};
