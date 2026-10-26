@@ -68,7 +68,7 @@ button:focus-visible{outline:3px solid var(--focus);outline-offset:4px}
 #fin td,#fin th{padding:.25em .3em;text-align:right}
 #fin td:first-child,#fin th:first-child{text-align:left}
 #fin tr.total td{font-weight:700;border-top:2px solid var(--ink-soft);font-size:1.15rem}
-#fin .p1c{color:var(--p1)}#fin .p2c{color:var(--p2)}/*marcador_v1*//*fichas_limpias_v1*/
+#fin .p1c{color:var(--p1)}#fin .p2c{color:var(--p2)}/*marcador_v1*//*marcador_solo_v1*/#fin .mk.solo .col{flex:0 1 62%;margin:0 auto}/*fichas_limpias_v1*/
 #fin .mk{display:flex;gap:.6em}#fin .mk[hidden]{display:none}
 #fin .mk .col{flex:1;border-radius:18px;padding:.7em .45em .8em;text-align:center;background:rgba(0,0,0,.04)}
 #fin .mk .col.gana.na{background:rgba(185,119,42,.14);box-shadow:inset 0 0 0 3px var(--p2)}
@@ -492,16 +492,17 @@ async function pasar(){
 }
 function fin(){
   ST.phase='fin';ui();
-  if(ST.modo==='solo'){const g=ST.coll[0].length,c=ST.fall[0].length;document.getElementById('finTab').hidden=false;document.getElementById('finMk').hidden=true;
-    document.getElementById('finTab').innerHTML=`<tr><td>Fichas ganadas ×1</td><td>${g} → ${g}</td></tr><tr><td>Fichas caídas ×−1</td><td>${c} → ${-c}</td></tr><tr class="total"><td>Total</td><td>${g-c}</td></tr>`;
-    document.getElementById('finTit').textContent='Solitario: '+(g-c)+' puntos';document.getElementById('fin').hidden=false;return;}
+  if(ST.modo==='solo'){const g=ST.coll[0].length,c=ST.fall[0].length;document.getElementById('finTab').hidden=true;const mk=document.getElementById('finMk');mk.hidden=false;mk.classList.add('solo');
+    const sg=n=>n>0?'+'+n:n<0?'−'+(-n):'0',L=(t,n,pt)=>`<div class="l"><span>${t}</span><i>${n}×</i><b class="${pt>0?'pos':pt<0?'neg':''}">${sg(pt)}</b></div>`;
+    mk.innerHTML=`<div class="col az"><div class="nom">Tú</div><div class="tot">${g-c}</div>`+L('Ganadas',g,g)+L('Caídas',c,-c)+'</div>';
+    document.getElementById('finTit').textContent='Solitario';document.getElementById('fin').hidden=false;return;}
   const rows=[];const tot=[0,0];
   const part=(p)=>{const ownC=ST.coll[p].filter(i=>tiles[i].owner===p).length,rivC=ST.coll[p].length-ownC;
     const ownF=ST.fall[p].filter(i=>tiles[i].owner===p).length,rivF=ST.fall[p].length-ownF;
     const v=[ownC*5,rivC,-ownF*5,-rivF,-ST.pen[p]];tot[p]=v.reduce((a,b)=>a+b,0);return {ownC,rivC,ownF,rivF,pen:ST.pen[p],v};};
   const a=part(0),b=part(1);
   const tab=document.getElementById('finTab');const NM=ST.modo==='online'?(RED.asiento===0?['Tú','Rival']:['Rival','Tú']):ST.modo==='ia'?['Tú','Máquina']:NOMBRES;
-  tab.hidden=true;const mk=document.getElementById('finMk');mk.hidden=false;
+  tab.hidden=true;const mk=document.getElementById('finMk');mk.hidden=false;mk.classList.remove('solo');
   const sg=n=>n>0?'+'+n:n<0?'−'+(-n):'0';
   const L=(t,n,pt)=>`<div class="l"><span>${t}</span><i>${n}×</i><b class="${pt>0?'pos':pt<0?'neg':''}">${sg(pt)}</b></div>`;
   const col=(x,i,cls)=>`<div class="col ${cls}${tot[i]>tot[1-i]?' gana':''}"><div class="nom">${NM[i]}</div><div class="tot">${tot[i]}</div>`
